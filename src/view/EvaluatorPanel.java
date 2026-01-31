@@ -1,14 +1,18 @@
+package view;
+
 import java.awt.*;
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import controller.Submission;
 
 public class EvaluatorPanel extends JPanel {
     public EvaluatorPanel(MainFrame frame) {
         setLayout(new BorderLayout());
 
         // List of submissions (Left side)
-        String[] columns = {"ID", "Student Name", "Status"};
-        Object[][] data = { {"1", "John Doe", "Pending"}, {"2", "Jane Smith", "Pending"} };
-        JTable table = new JTable(data, columns);
+        String[] columns = {"Student Name", "Project Title", "Status"};
+        DefaultTableModel tableModel = new DefaultTableModel(columns, 0);
+        JTable table = new JTable(tableModel);
         
         // Rubric Form (Right side)
         JPanel rubric = new JPanel(new GridLayout(5, 1, 10, 10));
@@ -28,5 +32,20 @@ public class EvaluatorPanel extends JPanel {
         add(btnPanel, BorderLayout.SOUTH);
 
         backBtn.addActionListener(e -> frame.showScreen("Login"));
+
+        // Refresh table data whenever this panel becomes visible
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                tableModel.setRowCount(0); // Clear previous data
+                for (Submission s : frame.getSubmissions()) {
+                    tableModel.addRow(new Object[]{
+                        s.getName(),
+                        s.getTitle(),
+                        s.getStatus()
+                    });
+                }
+            }
+        });
     }
 }
