@@ -5,7 +5,6 @@ import java.io.File;
 
 public class StudentPanel extends JPanel {
     // Declare fields as class members so we can access them in the listeners
-    private JTextField nameField;
     private JTextField titleField;
     private JTextArea abstractArea;
     private JTextField supervisorField;
@@ -15,17 +14,15 @@ public class StudentPanel extends JPanel {
     public StudentPanel(MainFrame frame) {
         setLayout(new BorderLayout(10, 10));
 
-        JPanel form = new JPanel(new GridLayout(6, 2, 10, 10));
+        JPanel form = new JPanel(new GridLayout(5, 2, 10, 10));
         form.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
         // Initialize the fields
-        nameField = new JTextField();
         titleField = new JTextField();
         abstractArea = new JTextArea(3, 20);
         supervisorField = new JTextField();
         typeCombo = new JComboBox<>(new String[]{"Oral", "Poster"});
 
-        form.add(new JLabel("Name:")); form.add(nameField);
         form.add(new JLabel("Research Title:")); form.add(titleField);
         form.add(new JLabel("Abstract:")); form.add(new JScrollPane(abstractArea));
         form.add(new JLabel("Supervisor:")); form.add(supervisorField);
@@ -61,8 +58,13 @@ public class StudentPanel extends JPanel {
         // 2. Handle Submission
         submitBtn.addActionListener(e -> {
             try {
+                String studentName = "Unknown";
+                if (frame.getCurrentUser() != null) {
+                    studentName = frame.getCurrentUser().getName();
+                }
+
                 frame.getSubmissionController().submitProposal(
-                    nameField.getText(),
+                    studentName,
                     titleField.getText(),
                     abstractArea.getText(),
                     supervisorField.getText(),
@@ -76,7 +78,6 @@ public class StudentPanel extends JPanel {
             }
             
             // Optional: Clear fields here if needed
-            nameField.setText("");
             titleField.setText("");
             abstractArea.setText("");
             supervisorField.setText("");
