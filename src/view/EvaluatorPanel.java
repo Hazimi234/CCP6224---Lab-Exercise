@@ -1,6 +1,8 @@
+package view;
 import java.awt.*;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import models.Submission;
 
 public class EvaluatorPanel extends JPanel {
     public EvaluatorPanel(MainFrame frame) {

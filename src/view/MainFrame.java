@@ -1,4 +1,7 @@
+package view;
+import controller.*;
 import java.awt.*;
+import models.Submission;
 import java.util.List;
 import javax.swing.*;
 

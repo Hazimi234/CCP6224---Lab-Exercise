@@ -1,6 +1,8 @@
+package controller;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import models.Submission;
 
 public class DataStore {
     private List<Submission> submissions;

@@ -1,6 +1,8 @@
+package view;
 import java.awt.*;
 import javax.swing.*;
 import java.io.File;
+import models.Submission;
 
 public class StudentPanel extends JPanel {
     // Declare fields as class members so we can access them in the listeners
@@ -40,7 +42,7 @@ public class StudentPanel extends JPanel {
         buttonPanel.add(backBtn);
         buttonPanel.add(submitBtn);
 
-        add(new JLabel("Student Submission Portal", SwingConstants.CENTER), BorderLayout.NORTH);
+        add(new JLabel("Seminar Registration Form", SwingConstants.CENTER), BorderLayout.NORTH);
         add(form, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.SOUTH);
 
