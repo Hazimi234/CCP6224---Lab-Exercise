@@ -8,10 +8,10 @@ public class StudentPanel extends JPanel {
         JPanel form = new JPanel(new GridLayout(6, 2, 10, 10));
         form.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        form.add(new JLabel("Project Title:")); form.add(new JTextField());
+        form.add(new JLabel("Research Title:")); form.add(new JTextField());
         form.add(new JLabel("Abstract:")); form.add(new JScrollPane(new JTextArea(3, 20)));
         form.add(new JLabel("Supervisor:")); form.add(new JTextField());
-        form.add(new JLabel("Type:")); form.add(new JComboBox<>(new String[]{"Research", "Development"}));
+        form.add(new JLabel("Presentation Type:")); form.add(new JComboBox<>(new String[]{"Oral", "Poster"}));
         
         JButton uploadBtn = new JButton("Select File...");
         form.add(new JLabel("Project File:")); form.add(uploadBtn);
