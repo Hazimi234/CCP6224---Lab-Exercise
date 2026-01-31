@@ -2,7 +2,6 @@ package view;
 import java.awt.*;
 import javax.swing.*;
 import java.io.File;
-import models.Submission;
 
 public class StudentPanel extends JPanel {
     // Declare fields as class members so we can access them in the listeners
@@ -11,7 +10,7 @@ public class StudentPanel extends JPanel {
     private JTextArea abstractArea;
     private JTextField supervisorField;
     private JComboBox<String> typeCombo;
-    private String selectedFilePath = "No file selected";
+    private String selectedFilePath = null;
 
     public StudentPanel(MainFrame frame) {
         setLayout(new BorderLayout(10, 10));
@@ -61,17 +60,20 @@ public class StudentPanel extends JPanel {
 
         // 2. Handle Submission
         submitBtn.addActionListener(e -> {
-            Submission newSubmission = new Submission(
-                nameField.getText(),
-                titleField.getText(),
-                abstractArea.getText(),
-                supervisorField.getText(),
-                (String) typeCombo.getSelectedItem(),
-                selectedFilePath
-            );
-            
-            frame.addSubmission(newSubmission);
-            JOptionPane.showMessageDialog(this, "Proposal Submitted Successfully!");
+            try {
+                frame.getSubmissionController().submitProposal(
+                    nameField.getText(),
+                    titleField.getText(),
+                    abstractArea.getText(),
+                    supervisorField.getText(),
+                    (String) typeCombo.getSelectedItem(),
+                    selectedFilePath
+                );
+                JOptionPane.showMessageDialog(this, "Proposal Submitted Successfully!");
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Submission Failed", JOptionPane.ERROR_MESSAGE);
+                return; // Don't clear fields if error
+            }
             
             // Optional: Clear fields here if needed
             nameField.setText("");
