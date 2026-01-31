@@ -1,6 +1,9 @@
+package view;
+
 import java.awt.*;
 import javax.swing.*;
 import java.io.File;
+import controller.Submission;
 
 public class StudentPanel extends JPanel {
     // Declare fields as class members so we can access them in the listeners

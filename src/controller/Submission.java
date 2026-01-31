@@ -1,3 +1,5 @@
+package controller;
+
 import java.io.Serializable;
 
 public class Submission implements Serializable {
