@@ -10,6 +10,11 @@ public class Submission implements Serializable {
     private String presentationType;
     private String filePath;
     private String status;
+    private int score1; //scores in evaluator panel
+    private int score2; //scores in evaluator panel
+    private int score3; //scores in evaluator panel
+    private int score4; //scores in evaluator panel
+    private String comments; // Add this field if not present
 
     public Submission(String name, String title, String abstractText, String supervisor, String presentationType, String filePath) {
         this.name = name;
@@ -29,9 +34,18 @@ public class Submission implements Serializable {
     public String getPresentationType() { return presentationType; }
     public String getFilePath() { return filePath; }
     public String getStatus() { return status; }
+    public String getComments() { return comments; } //comments in evaluator panel
 
     // Setter for status
     public void setStatus(String status) { this.status = status; }
+    public void setComments(String comments) { this.comments = comments; } //comments in evaluator panel
+
+    public void setScores(int score1, int score2, int score3, int score4) {
+        this.score1 = score1;
+        this.score2 = score2;
+        this.score3 = score3;
+        this.score4 = score4;
+    } //scores in evaluator panel
 
     @Override
     public String toString() {
