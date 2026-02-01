@@ -19,7 +19,7 @@ public class Submission implements Serializable {
     private String comments; // Add this field if not present
 
     public Submission(String name, String title, String abstractText, String supervisor, String presentationType, String filePath) {
-        this.id = UUID.randomUUID().toString();
+        this.id = UUID.randomUUID().toString().substring(0, 8);
         this.name = name;
         this.title = title;
         this.abstractText = abstractText;
@@ -32,7 +32,7 @@ public class Submission implements Serializable {
     // Getters
     public String getId() { 
         if (id == null) {
-            id = UUID.randomUUID().toString();
+            id = UUID.randomUUID().toString().substring(0, 8);
         }
         return id; 
     }

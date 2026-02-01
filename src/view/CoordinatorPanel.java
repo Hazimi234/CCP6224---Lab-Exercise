@@ -7,6 +7,8 @@ import models.User;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.File;
+import java.io.IOException;
 
 public class CoordinatorPanel extends JPanel {
     private MainFrame frame;
@@ -16,6 +18,8 @@ public class CoordinatorPanel extends JPanel {
     private JPanel evaluatorCheckboxesPanel;
     private JPanel submissionCheckboxesPanel;
     private JCheckBox filterByTypeBox;
+    private JComboBox<Session> posterSessionSelector;
+    private DefaultTableModel posterTableModel;
 
     public CoordinatorPanel(MainFrame frame) {
         this.frame = frame;
@@ -93,6 +97,32 @@ public class CoordinatorPanel extends JPanel {
         
         tabs.addTab("Assign Submissions", assignSubPanel);
 
+        // --- Tab 4: Poster Presentation Management ---
+        JPanel posterPanel = new JPanel(new BorderLayout());
+        JPanel topPoster = new JPanel(new FlowLayout());
+        posterSessionSelector = new JComboBox<>();
+        
+        topPoster.add(new JLabel("Select Poster Session:"));
+        topPoster.add(posterSessionSelector);
+        
+        String[] posterCols = {"ID", "Student Name", "Project Title", "Abstract", "File Path", "Status", "Action"};
+        posterTableModel = new DefaultTableModel(posterCols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 6;
+            }
+        };
+        JTable posterTable = new JTable(posterTableModel);
+        posterTable.getColumn("Action").setCellRenderer(new ButtonRenderer());
+        posterTable.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox(), posterTable));
+        JScrollPane tableScroll = new JScrollPane(posterTable);
+        tableScroll.setBorder(BorderFactory.createTitledBorder("Assigned Poster Details"));
+        
+        posterPanel.add(topPoster, BorderLayout.NORTH);
+        posterPanel.add(tableScroll, BorderLayout.CENTER);
+        
+        tabs.addTab("Poster Presentation Management", posterPanel);
+
         // --- Logic ---
         createBtn.addActionListener(e -> {
             try {
@@ -124,6 +154,7 @@ public class CoordinatorPanel extends JPanel {
         sessionSelector.addActionListener(e -> loadEvaluatorsForSession());
         submissionSessionSelector.addActionListener(e -> loadSubmissionsForSession());
         filterByTypeBox.addActionListener(e -> loadSubmissionsForSession());
+        posterSessionSelector.addActionListener(e -> loadPosterData());
         
         saveAssignmentBtn.addActionListener(e -> {
             Session selected = (Session) sessionSelector.getSelectedItem();
@@ -183,11 +214,15 @@ public class CoordinatorPanel extends JPanel {
         sessionTableModel.setRowCount(0);
         sessionSelector.removeAllItems();
         submissionSessionSelector.removeAllItems();
+        posterSessionSelector.removeAllItems();
         
         for (Session s : frame.getCoordinatorController().getAllSessions()) {
             sessionTableModel.addRow(new Object[]{s.getId(), s.getDate(), s.getTime(), s.getType()});
             sessionSelector.addItem(s);
             submissionSessionSelector.addItem(s);
+            if ("Poster".equals(s.getType())) {
+                posterSessionSelector.addItem(s);
+            }
         }
     }
 
@@ -236,5 +271,90 @@ public class CoordinatorPanel extends JPanel {
         }
         submissionCheckboxesPanel.revalidate();
         submissionCheckboxesPanel.repaint();
+    }
+
+    private void loadPosterData() {
+        posterTableModel.setRowCount(0);
+        Session selected = (Session) posterSessionSelector.getSelectedItem();
+        if (selected == null) return;
+
+        List<String> assignedIds = selected.getAssignedSubmissionIds();
+        List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
+
+        for (Submission s : submissions) {
+            if ("Poster".equals(s.getPresentationType())) {
+                boolean isAssigned = assignedIds != null && assignedIds.contains(s.getId());
+                if (isAssigned) {
+                    posterTableModel.addRow(new Object[]{
+                        s.getId(),
+                        s.getName(),
+                        s.getTitle(),
+                        s.getAbstractText(),
+                        s.getFilePath(),
+                        s.getStatus(),
+                        "View File"
+                    });
+                }
+            }
+        }
+    }
+
+    // --- Inner Classes for Table Button ---
+
+    private static class ButtonRenderer extends JButton implements javax.swing.table.TableCellRenderer {
+        public ButtonRenderer() {
+            setOpaque(true);
+        }
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            setText((value == null) ? "" : value.toString());
+            return this;
+        }
+    }
+
+    private static class ButtonEditor extends DefaultCellEditor {
+        protected JButton button;
+        private String label;
+        private final JTable table;
+
+        public ButtonEditor(JCheckBox checkBox, JTable table) {
+            super(checkBox);
+            this.table = table;
+            button = new JButton();
+            button.setOpaque(true);
+            button.addActionListener(e -> {
+                int row = table.getSelectedRow();
+                // File Path is at index 4 based on posterCols definition
+                Object val = table.getValueAt(row, 4); 
+                String filePath = (val != null) ? val.toString() : "";
+                openFile(filePath);
+                fireEditingStopped();
+            });
+        }
+
+        private void openFile(String filePath) {
+            try {
+                File file = new File(filePath);
+                if (file.exists()) {
+                    Desktop.getDesktop().open(file);
+                } else {
+                    JOptionPane.showMessageDialog(null, "File not found: " + filePath);
+                }
+            } catch (IOException | SecurityException ex) {
+                JOptionPane.showMessageDialog(null, "Error opening file: " + ex.getMessage());
+            }
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            label = (value == null) ? "View" : value.toString();
+            button.setText(label);
+            return button;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return label;
+        }
     }
 }
