@@ -60,6 +60,10 @@ public class DataStore {
         return sessions;
     }
 
+    public void saveSubmissions() {
+        save();
+    }
+
     private void save() {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
             oos.writeObject(submissions);

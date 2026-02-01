@@ -4,6 +4,7 @@ import javax.swing.table.DefaultTableModel;
 import models.Session;
 import models.Submission;
 import models.User;
+import models.Evaluation;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,7 @@ public class CoordinatorPanel extends JPanel {
     private JCheckBox filterByTypeBox;
     private JComboBox<Session> posterSessionSelector;
     private DefaultTableModel posterTableModel;
+    private DefaultTableModel reportTableModel;
 
     public CoordinatorPanel(MainFrame frame) {
         this.frame = frame;
@@ -105,7 +107,7 @@ public class CoordinatorPanel extends JPanel {
         topPoster.add(new JLabel("Select Poster Session:"));
         topPoster.add(posterSessionSelector);
         
-        String[] posterCols = {"ID", "Student Name", "Project Title", "Abstract", "File Path", "Status", "Action"};
+        String[] posterCols = {"Board ID", "Student Name", "Project Title", "Abstract", "File Path", "Status", "Action"};
         posterTableModel = new DefaultTableModel(posterCols, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -122,6 +124,23 @@ public class CoordinatorPanel extends JPanel {
         posterPanel.add(tableScroll, BorderLayout.CENTER);
         
         tabs.addTab("Poster Presentation Management", posterPanel);
+
+        // --- Tab 5: Report Summary ---
+        JPanel reportPanel = new JPanel(new BorderLayout());
+        String[] reportCols = {"Student Name", "Project Title", "Evaluated", "Status", "View Details"};
+        reportTableModel = new DefaultTableModel(reportCols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 4; // Button column
+            }
+        };
+        JTable reportTable = new JTable(reportTableModel);
+        reportTable.getColumn("View Details").setCellRenderer(new ButtonRenderer());
+        reportTable.getColumn("View Details").setCellEditor(new DetailsButtonEditor(new JCheckBox(), reportTable, frame));
+        JScrollPane reportScroll = new JScrollPane(reportTable);
+        reportScroll.setBorder(BorderFactory.createTitledBorder("Submission Reports"));
+        reportPanel.add(reportScroll, BorderLayout.CENTER);
+        tabs.addTab("Report Summary", reportPanel);
 
         // --- Logic ---
         createBtn.addActionListener(e -> {
@@ -224,6 +243,7 @@ public class CoordinatorPanel extends JPanel {
                 posterSessionSelector.addItem(s);
             }
         }
+        loadReportData();
     }
 
     private void loadEvaluatorsForSession() {
@@ -286,7 +306,7 @@ public class CoordinatorPanel extends JPanel {
                 boolean isAssigned = assignedIds != null && assignedIds.contains(s.getId());
                 if (isAssigned) {
                     posterTableModel.addRow(new Object[]{
-                        s.getId(),
+                        s.getBoardId() != null ? s.getBoardId() : "-",
                         s.getName(),
                         s.getTitle(),
                         s.getAbstractText(),
@@ -296,6 +316,44 @@ public class CoordinatorPanel extends JPanel {
                     });
                 }
             }
+        }
+    }
+
+    private void loadReportData() {
+        if (reportTableModel == null) return;
+        reportTableModel.setRowCount(0);
+        List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
+        List<Session> sessions = frame.getCoordinatorController().getAllSessions();
+
+        for (Submission s : submissions) {
+            // Find the session this submission belongs to
+            int totalEvaluators = 0;
+            for (Session session : sessions) {
+                if (session.getAssignedSubmissionIds().contains(s.getId())) {
+                    totalEvaluators = session.getAssignedEvaluatorIds().size();
+                    break;
+                }
+            }
+
+            int evaluatedCount = s.getEvaluations().size();
+            String evaluatedStr = evaluatedCount + "/" + totalEvaluators;
+            
+            String statusStr = "Not Evaluated";
+            if (evaluatedCount > 0) {
+                if (evaluatedCount >= totalEvaluators && totalEvaluators > 0) {
+                    statusStr = "Fully Evaluated";
+                } else {
+                    statusStr = "Partially Evaluated";
+                }
+            }
+
+            reportTableModel.addRow(new Object[]{
+                s.getName(),
+                s.getTitle(),
+                evaluatedStr,
+                statusStr,
+                "View Details" // Button text
+            });
         }
     }
 
@@ -342,6 +400,76 @@ public class CoordinatorPanel extends JPanel {
                 }
             } catch (IOException | SecurityException ex) {
                 JOptionPane.showMessageDialog(null, "Error opening file: " + ex.getMessage());
+            }
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            label = (value == null) ? "View" : value.toString();
+            button.setText(label);
+            return button;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return label;
+        }
+    }
+
+    // --- Inner Class for Details Button ---
+    private static class DetailsButtonEditor extends DefaultCellEditor {
+        protected JButton button;
+        private String label;
+        private final JTable table;
+        private final MainFrame frame;
+
+        public DetailsButtonEditor(JCheckBox checkBox, JTable table, MainFrame frame) {
+            super(checkBox);
+            this.table = table;
+            this.frame = frame;
+            button = new JButton();
+            button.setOpaque(true);
+            button.addActionListener(e -> {
+                int row = table.getSelectedRow();
+                showDetails(row);
+                fireEditingStopped();
+            });
+        }
+
+        private void showDetails(int row) {
+            // We need to find the submission corresponding to this row
+            // Since the table order matches the list order in loadReportData (assuming no sorting),
+            // we can try to match by name/title or just grab from controller if order is preserved.
+            // Better: Search by title/name from the table model.
+            String title = (String) table.getValueAt(row, 1);
+            String student = (String) table.getValueAt(row, 0);
+            
+            Submission target = null;
+            for (Submission s : frame.getCoordinatorController().getAllSubmissions()) {
+                if (s.getTitle().equals(title) && s.getName().equals(student)) {
+                    target = s;
+                    break;
+                }
+            }
+
+            if (target != null) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("Evaluations for: ").append(target.getTitle()).append("\n\n");
+                for (Evaluation ev : target.getEvaluations()) {
+                    sb.append("Evaluator: ").append(ev.getEvaluatorName()).append("\n");
+                    sb.append("Scores: Problem Clarity:").append(ev.getScore1()).append(" Methodology:").append(ev.getScore2())
+                      .append(" Results:").append(ev.getScore3()).append(" Presentation:").append(ev.getScore4()).append("\n");
+                    sb.append("Total: ").append(ev.getTotalScore()).append("/20\n");
+                    sb.append("Comments: ").append(ev.getComments()).append("\n");
+                    sb.append("--------------------------------------------------\n");
+                }
+                if (target.getEvaluations().isEmpty()) sb.append("No evaluations yet.");
+                
+                JTextArea textArea = new JTextArea(sb.toString());
+                textArea.setEditable(false);
+                textArea.setRows(15);
+                textArea.setColumns(40);
+                JOptionPane.showMessageDialog(null, new JScrollPane(textArea), "Evaluation Details", JOptionPane.INFORMATION_MESSAGE);
             }
         }
 

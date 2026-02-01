@@ -60,5 +60,20 @@ public class CoordinatorController {
     public void updateSessionSubmissions(Session session, List<String> submissionIds) {
         session.setAssignedSubmissionIds(submissionIds);
         dataStore.saveSessions();
+
+        // Auto-generate Board IDs for Poster sessions
+        if ("Poster".equals(session.getType())) {
+            List<Submission> allSubmissions = dataStore.getSubmissions();
+            int counter = 1;
+            for (String subId : submissionIds) {
+                for (Submission s : allSubmissions) {
+                    if (s.getId().equals(subId)) {
+                        s.setBoardId(String.format("B%02d", counter++));
+                        break;
+                    }
+                }
+            }
+            dataStore.saveSubmissions();
+        }
     }
 }

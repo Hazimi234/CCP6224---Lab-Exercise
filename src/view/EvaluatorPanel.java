@@ -5,6 +5,7 @@ import java.io.IOException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import models.Submission;
+import models.Evaluation;
 import models.Session;
 import models.User;
 import java.util.List;
@@ -120,10 +121,18 @@ public class EvaluatorPanel extends JPanel {
                 int presentation = (int) ((JSpinner) rubric.getComponent(7)).getValue();
                 String comments = ((JTextField) rubric.getComponent(9)).getText();
 
+                User currentUser = frame.getCurrentUser();
                 Submission submission = displayedSubmissions.get(selectedRow);
-                submission.setScores(clarity, methodology, results, presentation);
-                submission.setComments(comments);
-                submission.setStatus("Evaluated");
+                
+                Evaluation evaluation = new Evaluation(
+                    currentUser.getId(),
+                    currentUser.getName(),
+                    clarity, methodology, results, presentation, comments
+                );
+                
+                submission.addEvaluation(evaluation);
+                // We don't set global status to "Evaluated" here anymore, as it depends on other evaluators
+                frame.getSubmissionController().saveSubmissions();
 
                 JOptionPane.showMessageDialog(this, "Evaluation saved for " + submission.getName());
                 // submission.setScores(0, 0, 0, 0); // Removed to prevent wiping saved scores
@@ -167,6 +176,14 @@ public class EvaluatorPanel extends JPanel {
 
         for (Submission s : frame.getSubmissions()) {
             if (assignedSubmissionIds.contains(s.getId())) {
+                // Check if THIS evaluator has evaluated it
+                String myStatus = "Pending";
+                for (Evaluation e : s.getEvaluations()) {
+                    if (e.getEvaluatorId().equals(currentUser.getId())) {
+                        myStatus = "Evaluated";
+                        break;
+                    }
+                }
                 displayedSubmissions.add(s);
                 tableModel.addRow(new Object[]{
                     s.getName(),
@@ -174,7 +191,7 @@ public class EvaluatorPanel extends JPanel {
                     s.getAbstractText(),
                     s.getPresentationType(),
                     s.getFilePath(),
-                    s.getStatus(),
+                    myStatus,
                     "View File"
                 });
             }
