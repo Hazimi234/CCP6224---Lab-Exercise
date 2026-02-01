@@ -5,6 +5,11 @@ import java.io.IOException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import models.Submission;
+import models.Session;
+import models.User;
+import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 class ButtonRenderer extends JButton implements javax.swing.table.TableCellRenderer {
     public ButtonRenderer() {
@@ -127,16 +132,35 @@ public class EvaluatorPanel extends JPanel {
             @Override
             public void componentShown(java.awt.event.ComponentEvent e) {
                 tableModel.setRowCount(0); // Clear previous data
+                
+                User currentUser = frame.getCurrentUser();
+                if (currentUser == null) return;
+
+                Set<String> assignedSubmissionIds = new HashSet<>();
+                List<Session> sessions = frame.getCoordinatorController().getAllSessions();
+                
+                for (Session session : sessions) {
+                    List<String> evalIds = session.getAssignedEvaluatorIds();
+                    if (evalIds != null && evalIds.contains(currentUser.getId())) {
+                        List<String> subIds = session.getAssignedSubmissionIds();
+                        if (subIds != null) {
+                            assignedSubmissionIds.addAll(subIds);
+                        }
+                    }
+                }
+
                 for (Submission s : frame.getSubmissions()) {
-                    tableModel.addRow(new Object[]{
-                        s.getName(),
-                        s.getTitle(),
-                        s.getAbstractText(),
-                        s.getPresentationType(),
-                        s.getFilePath(),
-                        s.getStatus(),
-                        "View File"
-                    });
+                    if (assignedSubmissionIds.contains(s.getId())) {
+                        tableModel.addRow(new Object[]{
+                            s.getName(),
+                            s.getTitle(),
+                            s.getAbstractText(),
+                            s.getPresentationType(),
+                            s.getFilePath(),
+                            s.getStatus(),
+                            "View File"
+                        });
+                    }
                 }
             }
         });

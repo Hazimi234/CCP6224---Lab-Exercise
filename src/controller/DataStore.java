@@ -3,19 +3,24 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import models.Submission;
+import models.Session;
 import models.User;
 
 public class DataStore {
     private List<Submission> submissions;
     private List<User> users;
+    private List<Session> sessions;
     private static final String FILE_NAME = "submissions.dat";
     private static final String USER_FILE = "users.dat";
+    private static final String SESSION_FILE = "sessions.dat";
 
     public DataStore() {
         submissions = new ArrayList<>();
         users = new ArrayList<>();
+        sessions = new ArrayList<>();
         load();
         loadUsers();
+        loadSessions();
     }
 
     public void addSubmission(Submission submission) {
@@ -33,12 +38,26 @@ public class DataStore {
         saveUsers();
     }
 
+    public void addSession(Session session) {
+        sessions.add(session);
+        saveSessions();
+    }
+
+    public void removeSession(Session session) {
+        sessions.remove(session);
+        saveSessions();
+    }
+
     public List<Submission> getSubmissions() {
         return submissions;
     }
 
     public List<User> getUsers() {
         return users;
+    }
+
+    public List<Session> getSessions() {
+        return sessions;
     }
 
     private void save() {
@@ -77,6 +96,26 @@ public class DataStore {
                 users = (List<User>) ois.readObject();
             } catch (IOException | ClassNotFoundException e) {
                 System.err.println("Error loading users: " + e.getMessage());
+            }
+        }
+    }
+
+    public void saveSessions() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(SESSION_FILE))) {
+            oos.writeObject(sessions);
+        } catch (IOException e) {
+            System.err.println("Error saving sessions: " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void loadSessions() {
+        File file = new File(SESSION_FILE);
+        if (file.exists()) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+                sessions = (List<Session>) ois.readObject();
+            } catch (IOException | ClassNotFoundException e) {
+                System.err.println("Error loading sessions: " + e.getMessage());
             }
         }
     }

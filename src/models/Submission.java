@@ -1,8 +1,10 @@
 package models;
 import java.io.Serializable;
+import java.util.UUID;
 
 public class Submission implements Serializable {
     private static final long serialVersionUID = 1L;
+    private String id;
     private String name;
     private String title;
     private String abstractText;
@@ -17,6 +19,7 @@ public class Submission implements Serializable {
     private String comments; // Add this field if not present
 
     public Submission(String name, String title, String abstractText, String supervisor, String presentationType, String filePath) {
+        this.id = UUID.randomUUID().toString();
         this.name = name;
         this.title = title;
         this.abstractText = abstractText;
@@ -27,6 +30,12 @@ public class Submission implements Serializable {
     }
 
     // Getters
+    public String getId() { 
+        if (id == null) {
+            id = UUID.randomUUID().toString();
+        }
+        return id; 
+    }
     public String getName() { return name; }
     public String getTitle() { return title; }
     public String getAbstractText() { return abstractText; }
