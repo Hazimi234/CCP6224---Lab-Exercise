@@ -1,0 +1,20 @@
+================================================================================
+                       SEMINAR MANAGEMENT SYSTEM REPORT                         
+================================================================================
+
+Student              Title                          Type            Status         
+--------------------------------------------------------------------------------
+Brian                Oral                           Oral            Evaluated (2)  
+   DETAILS: [A: 20/20] [B: 12/20] 
+
+Brian                Poster                         Poster          Pending        
+
+Alif                 Poster                         Poster          Pending        
+
+Alif                 Oral                           Oral            Pending        
+
+Brian                Poster2                        Poster          Pending        
+
+
+================================================================================
+Generated on: Tue Feb 03 11:23:25 MYT 2026
