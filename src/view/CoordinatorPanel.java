@@ -171,12 +171,18 @@ public class CoordinatorPanel extends JPanel {
         // 1. Top Panel: Compute Winners
         JPanel winnerPanel = new JPanel(new BorderLayout());
         winnerPanel.setBorder(BorderFactory.createTitledBorder("Competition Results"));
+        
+        JPanel winnerBtnPanel = new JPanel();
+        JButton inputVotesBtn = new JButton("Input Audience Votes (People's Choice)");
         JButton computeWinnersBtn = new JButton("Compute Winners");
+        winnerBtnPanel.add(inputVotesBtn);
+        winnerBtnPanel.add(computeWinnersBtn);
+
         JTextArea winnersDisplay = new JTextArea(5, 40);
         winnersDisplay.setEditable(false);
         winnersDisplay.setFont(new Font("Monospaced", Font.BOLD, 14));
 
-        winnerPanel.add(computeWinnersBtn, BorderLayout.NORTH);
+        winnerPanel.add(winnerBtnPanel, BorderLayout.NORTH);
         winnerPanel.add(new JScrollPane(winnersDisplay), BorderLayout.CENTER);
 
         // 2. Bottom Panel: Generate Agenda
@@ -189,12 +195,9 @@ public class CoordinatorPanel extends JPanel {
         JTextField ceremonyVenue = new JTextField(15);
         JButton generateAgendaBtn = new JButton("Generate Agenda");
 
-        agendaForm.add(new JLabel("Date:"));
-        agendaForm.add(ceremonyDate);
-        agendaForm.add(new JLabel("Time:"));
-        agendaForm.add(ceremonyTime);
-        agendaForm.add(new JLabel("Venue:"));
-        agendaForm.add(ceremonyVenue);
+        agendaForm.add(new JLabel("Date:")); agendaForm.add(ceremonyDate);
+        agendaForm.add(new JLabel("Time:")); agendaForm.add(ceremonyTime);
+        agendaForm.add(new JLabel("Venue:")); agendaForm.add(ceremonyVenue);
         agendaForm.add(generateAgendaBtn);
 
         JTextArea agendaDisplay = new JTextArea(10, 40);
@@ -204,68 +207,119 @@ public class CoordinatorPanel extends JPanel {
         agendaPanel.add(agendaForm, BorderLayout.NORTH);
         agendaPanel.add(new JScrollPane(agendaDisplay), BorderLayout.CENTER);
 
-        // Add split pane to handle both sections
+        // Add split pane
         JSplitPane awardSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, winnerPanel, agendaPanel);
         awardSplit.setDividerLocation(200);
         awardPanel.add(awardSplit, BorderLayout.CENTER);
 
         tabs.addTab("Award & Ceremony", awardPanel);
 
-        // --- Logic for Awards ---
+        // --- Logic: Input Votes Button ---
+        inputVotesBtn.addActionListener(e -> {
+            // Create a simple table to edit votes
+            List<Submission> allSubs = frame.getCoordinatorController().getAllSubmissions();
+            String[] colNames = {"Student", "Title", "Current Votes (Editable)"};
+            DefaultTableModel voteModel = new DefaultTableModel(colNames, 0) {
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return column == 2; // Only the vote count is editable
+                }
+            };
 
-        // A. Compute Winners Logic
+            for (Submission s : allSubs) {
+                voteModel.addRow(new Object[]{s.getName(), s.getTitle(), String.valueOf(s.getVoteCount())});
+            }
+
+            JTable voteTable = new JTable(voteModel);
+            JScrollPane scroll = new JScrollPane(voteTable);
+            
+            int result = JOptionPane.showConfirmDialog(this, scroll, 
+                "Enter Offline Vote Counts", JOptionPane.OK_CANCEL_OPTION);
+
+            if (result == JOptionPane.OK_OPTION) {
+                try {
+                    // Update models from table
+                    for (int i = 0; i < voteTable.getRowCount(); i++) {
+                        String sName = (String) voteTable.getValueAt(i, 0);
+                        String sTitle = (String) voteTable.getValueAt(i, 1);
+                        String voteStr = (String) voteTable.getValueAt(i, 2);
+                        int count = Integer.parseInt(voteStr.trim());
+
+                        // Find submission and update
+                        for (Submission s : allSubs) {
+                            if (s.getName().equals(sName) && s.getTitle().equals(sTitle)) {
+                                s.setVoteCount(count);
+                                break;
+                            }
+                        }
+                    }
+                    frame.getSubmissionController().saveSubmissions(); // Save changes
+                    JOptionPane.showMessageDialog(this, "Votes Updated Successfully!");
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, "Error: Please enter valid numbers only.");
+                }
+            }
+        });
+
+        // --- Logic: Compute Winners ---
         computeWinnersBtn.addActionListener(e -> {
             List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
-
+            
             Submission bestOral = null;
             Submission bestPoster = null;
+            Submission peoplesChoice = null;
+
             double maxOralScore = -1;
             double maxPosterScore = -1;
+            int maxVotes = -1;
 
             for (Submission s : submissions) {
-                if (s.getEvaluations().isEmpty())
-                    continue;
+                // 1. Calculate Evaluator Scores
+                if (!s.getEvaluations().isEmpty()) {
+                    double totalScore = 0;
+                    for (Evaluation ev : s.getEvaluations()) {
+                        totalScore += ev.getTotalScore();
+                    }
+                    double avgScore = totalScore / s.getEvaluations().size();
 
-                // Calculate average score for this student
-                double totalScore = 0;
-                for (Evaluation ev : s.getEvaluations()) {
-                    totalScore += ev.getTotalScore();
-                }
-                double avgScore = totalScore / s.getEvaluations().size();
-
-                // Check if this is the new best score
-                if ("Oral".equalsIgnoreCase(s.getPresentationType())) {
-                    if (avgScore > maxOralScore) {
+                    if ("Oral".equalsIgnoreCase(s.getPresentationType()) && avgScore > maxOralScore) {
                         maxOralScore = avgScore;
                         bestOral = s;
-                    }
-                } else if ("Poster".equalsIgnoreCase(s.getPresentationType())) {
-                    if (avgScore > maxPosterScore) {
+                    } else if ("Poster".equalsIgnoreCase(s.getPresentationType()) && avgScore > maxPosterScore) {
                         maxPosterScore = avgScore;
                         bestPoster = s;
                     }
+                }
+
+                // 2. Calculate People's Choice (Max Votes Wins)
+                if (s.getVoteCount() > maxVotes && s.getVoteCount() > 0) {
+                    maxVotes = s.getVoteCount();
+                    peoplesChoice = s;
                 }
             }
 
             StringBuilder sb = new StringBuilder();
             sb.append("🏆 AWARD WINNERS ANNOUNCEMENT 🏆\n\n");
-
+            
             if (bestOral != null) {
                 sb.append("🥇 BEST ORAL PRESENTER\n");
                 sb.append("   Name: ").append(bestOral.getName()).append("\n");
-                sb.append("   Title: ").append(bestOral.getTitle()).append("\n");
                 sb.append("   Score: ").append(String.format("%.2f", maxOralScore)).append("/20\n\n");
-            } else {
-                sb.append("🥇 BEST ORAL PRESENTER: [Data Insufficient]\n\n");
             }
 
             if (bestPoster != null) {
                 sb.append("🥇 BEST POSTER PRESENTER\n");
                 sb.append("   Name: ").append(bestPoster.getName()).append("\n");
-                sb.append("   Title: ").append(bestPoster.getTitle()).append("\n");
-                sb.append("   Score: ").append(String.format("%.2f", maxPosterScore)).append("/20\n");
+                sb.append("   Score: ").append(String.format("%.2f", maxPosterScore)).append("/20\n\n");
+            }
+
+            if (peoplesChoice != null) {
+                sb.append("💖 PEOPLE'S CHOICE AWARD\n");
+                sb.append("   Name: ").append(peoplesChoice.getName()).append("\n");
+                sb.append("   Title: ").append(peoplesChoice.getTitle()).append("\n");
+                sb.append("   Total Votes: ").append(peoplesChoice.getVoteCount()).append("\n");
             } else {
-                sb.append("🥇 BEST POSTER PRESENTER: [Data Insufficient]\n");
+                sb.append("💖 PEOPLE'S CHOICE AWARD: [No votes recorded]\n");
             }
 
             winnersDisplay.setText(sb.toString());
@@ -301,6 +355,7 @@ public class CoordinatorPanel extends JPanel {
             sb.append("4. Award Giving Ceremony:\n");
             sb.append("   - Best Oral Presentation Award\n");
             sb.append("   - Best Poster Presentation Award\n");
+            sb.append("   - People's Choice\n");
             sb.append("5. Photography Session\n");
             sb.append("6. Refreshments & End\n");
 

@@ -1,4 +1,5 @@
 package models;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +17,10 @@ public class Submission implements Serializable {
     private String status;
     private List<Evaluation> evaluations;
     private String boardId;
+    private int voteCount = 0;
 
-    public Submission(String name, String title, String abstractText, String supervisor, String presentationType, String filePath) {
+    public Submission(String name, String title, String abstractText, String supervisor, String presentationType,
+            String filePath) {
         this.id = UUID.randomUUID().toString().substring(0, 8);
         this.name = name;
         this.title = title;
@@ -27,23 +30,49 @@ public class Submission implements Serializable {
         this.filePath = filePath;
         this.status = "Pending";
         this.evaluations = new ArrayList<>();
+        this.voteCount = 0;
     }
 
     // Getters
-    public String getId() { 
+    public String getId() {
         if (id == null) {
             id = UUID.randomUUID().toString().substring(0, 8);
         }
-        return id; 
+        return id;
     }
-    public String getName() { return name; }
-    public String getTitle() { return title; }
-    public String getAbstractText() { return abstractText; }
-    public String getSupervisor() { return supervisor; }
-    public String getPresentationType() { return presentationType; }
-    public String getFilePath() { return filePath; }
-    public String getStatus() { return status; }
-    public String getBoardId() { return boardId; }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getAbstractText() {
+        return abstractText;
+    }
+
+    public String getSupervisor() {
+        return supervisor;
+    }
+
+    public String getPresentationType() {
+        return presentationType;
+    }
+
+    public String getFilePath() {
+        return filePath;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public String getBoardId() {
+        return boardId;
+    }
+
     public List<Evaluation> getEvaluations() {
         if (evaluations == null) {
             evaluations = new ArrayList<>();
@@ -52,8 +81,13 @@ public class Submission implements Serializable {
     }
 
     // Setter for status
-    public void setStatus(String status) { this.status = status; }
-    public void setBoardId(String boardId) { this.boardId = boardId; }
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public void setBoardId(String boardId) {
+        this.boardId = boardId;
+    }
 
     public void addEvaluation(Evaluation evaluation) {
         if (this.evaluations == null) {
@@ -62,6 +96,14 @@ public class Submission implements Serializable {
         // Remove existing evaluation by the same evaluator to allow updates
         this.evaluations.removeIf(e -> e.getEvaluatorId().equals(evaluation.getEvaluatorId()));
         this.evaluations.add(evaluation);
+    }
+
+    public int getVoteCount() {
+        return voteCount;
+    }
+
+    public void setVoteCount(int voteCount) {
+        this.voteCount = voteCount;
     }
 
     @Override

@@ -11,10 +11,11 @@ Brian                Poster                         Poster          Pending
 
 Alif                 Poster                         Poster          Pending        
 
-Alif                 Oral                           Oral            Pending        
+Alif                 Oral                           Oral            Evaluated (1)  
+   DETAILS: [A: 18/20] 
 
 Brian                Poster2                        Poster          Pending        
 
 
 ================================================================================
-Generated on: Tue Feb 03 12:22:02 MYT 2026
+Generated on: Wed Feb 04 14:35:59 MYT 2026
