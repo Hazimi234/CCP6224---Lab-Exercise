@@ -5,6 +5,13 @@ import java.io.IOException;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import models.Submission;
+import models.Evaluation;
+import models.Session;
+import models.User;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
 
 class ButtonRenderer extends JButton implements javax.swing.table.TableCellRenderer {
     public ButtonRenderer() {
@@ -60,12 +67,17 @@ class ButtonEditor extends DefaultCellEditor{
 }
 
 public class EvaluatorPanel extends JPanel {
+    private MainFrame frame;
+    private DefaultTableModel tableModel;
+    private List<Submission> displayedSubmissions = new ArrayList<>();
+
     public EvaluatorPanel(MainFrame frame) {
+        this.frame = frame;
         setLayout(new BorderLayout());
 
         // List of submissions (Left side)
         String[] columns = {"Student Name", "Project Title", "Abstract", "Presentation Type", "File Path", "Status", "Action"};
-        DefaultTableModel tableModel = new DefaultTableModel(columns, 0){
+        tableModel = new DefaultTableModel(columns, 0){
             @Override
             public boolean isCellEditable(int row, int column) {return column == 6; // Only the "Action" column is editable
                 }
@@ -109,14 +121,23 @@ public class EvaluatorPanel extends JPanel {
                 int presentation = (int) ((JSpinner) rubric.getComponent(7)).getValue();
                 String comments = ((JTextField) rubric.getComponent(9)).getText();
 
-                Submission submission = frame.getSubmissions().get(selectedRow);
-                submission.setScores(clarity, methodology, results, presentation);
-                submission.setComments(comments);
-                submission.setStatus("Evaluated");
+                User currentUser = frame.getCurrentUser();
+                Submission submission = displayedSubmissions.get(selectedRow);
+                
+                Evaluation evaluation = new Evaluation(
+                    currentUser.getId(),
+                    currentUser.getName(),
+                    clarity, methodology, results, presentation, comments
+                );
+                
+                submission.addEvaluation(evaluation);
+                // We don't set global status to "Evaluated" here anymore, as it depends on other evaluators
+                frame.getSubmissionController().saveSubmissions();
 
                 JOptionPane.showMessageDialog(this, "Evaluation saved for " + submission.getName());
-                submission.setScores(0, 0, 0, 0); // Reset scores after saving
+                // submission.setScores(0, 0, 0, 0); // Removed to prevent wiping saved scores
                 ((JTextField) rubric.getComponent(9)).setText(""); // Clear comments field
+                refreshTable();
             } else {
                 JOptionPane.showMessageDialog(this, "Please select a submission to evaluate.");
             }
@@ -126,21 +147,54 @@ public class EvaluatorPanel extends JPanel {
         this.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentShown(java.awt.event.ComponentEvent e) {
-                tableModel.setRowCount(0); // Clear previous data
-                for (Submission s : frame.getSubmissions()) {
-                    tableModel.addRow(new Object[]{
-                        s.getName(),
-                        s.getTitle(),
-                        s.getAbstractText(),
-                        s.getPresentationType(),
-                        s.getFilePath(),
-                        s.getStatus(),
-                        "View File"
-                    });
-                }
+                refreshTable();
             }
         });
 
 
+    }
+
+    private void refreshTable() {
+        tableModel.setRowCount(0); // Clear previous data
+        displayedSubmissions.clear();
+        
+        User currentUser = frame.getCurrentUser();
+        if (currentUser == null) return;
+
+        Set<String> assignedSubmissionIds = new HashSet<>();
+        List<Session> sessions = frame.getCoordinatorController().getAllSessions();
+        
+        for (Session session : sessions) {
+            List<String> evalIds = session.getAssignedEvaluatorIds();
+            if (evalIds != null && evalIds.contains(currentUser.getId())) {
+                List<String> subIds = session.getAssignedSubmissionIds();
+                if (subIds != null) {
+                    assignedSubmissionIds.addAll(subIds);
+                }
+            }
+        }
+
+        for (Submission s : frame.getSubmissions()) {
+            if (assignedSubmissionIds.contains(s.getId())) {
+                // Check if THIS evaluator has evaluated it
+                String myStatus = "Pending";
+                for (Evaluation e : s.getEvaluations()) {
+                    if (e.getEvaluatorId().equals(currentUser.getId())) {
+                        myStatus = "Evaluated";
+                        break;
+                    }
+                }
+                displayedSubmissions.add(s);
+                tableModel.addRow(new Object[]{
+                    s.getName(),
+                    s.getTitle(),
+                    s.getAbstractText(),
+                    s.getPresentationType(),
+                    s.getFilePath(),
+                    myStatus,
+                    "View File"
+                });
+            }
+        }
     }
 }

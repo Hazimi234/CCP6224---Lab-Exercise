@@ -12,6 +12,7 @@ public class MainFrame extends JFrame {
     private final DataStore dataStore;
     private final SubmissionController submissionController;
     private final UserController userController;
+    private final CoordinatorController coordinatorController;
     private User currentUser;
 
     public MainFrame() {
@@ -21,6 +22,7 @@ public class MainFrame extends JFrame {
         dataStore = new DataStore(); // Initialize the central data store
         submissionController = new SubmissionController(dataStore); // Initialize controller
         userController = new UserController(dataStore);
+        coordinatorController = new CoordinatorController(dataStore);
 
         // You "instantiate" the other classes here
         mainPanel.add(new LoginPanel(this), "Login");
@@ -52,6 +54,10 @@ public class MainFrame extends JFrame {
 
     public UserController getUserController() {
         return userController;
+    }
+
+    public CoordinatorController getCoordinatorController() {
+        return coordinatorController;
     }
 
     public List<Submission> getSubmissions() { return dataStore.getSubmissions(); }

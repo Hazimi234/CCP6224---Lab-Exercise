@@ -31,4 +31,8 @@ public class SubmissionController {
         // 3. Store Data
         dataStore.addSubmission(submission);
     }
+
+    public void saveSubmissions() {
+        dataStore.saveSubmissions();
+    }
 }
