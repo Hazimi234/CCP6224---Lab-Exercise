@@ -19,19 +19,22 @@ public class UserManagementPanel extends JPanel {
         JPanel formPanel = new JPanel(new FlowLayout());
         JTextField nameField = new JTextField(10);
         JTextField idField = new JTextField(10);
-        JComboBox<String> roleCombo = new JComboBox<>(new String[]{"Student", "Evaluator", "Coordinator"});
+        JComboBox<String> roleCombo = new JComboBox<>(new String[] { "Student", "Evaluator", "Coordinator" });
         JButton addBtn = new JButton("Add User");
 
-        formPanel.add(new JLabel("Name:")); formPanel.add(nameField);
-        formPanel.add(new JLabel("ID:")); formPanel.add(idField);
-        formPanel.add(new JLabel("Role:")); formPanel.add(roleCombo);
+        formPanel.add(new JLabel("Name:"));
+        formPanel.add(nameField);
+        formPanel.add(new JLabel("ID:"));
+        formPanel.add(idField);
+        formPanel.add(new JLabel("Role:"));
+        formPanel.add(roleCombo);
         formPanel.add(addBtn);
 
         // Center: Table
-        String[] columns = {"Name", "ID", "Role"};
+        String[] columns = { "Name", "ID", "Role" };
         tableModel = new DefaultTableModel(columns, 0);
         JTable table = new JTable(tableModel);
-        
+
         // Bottom: Actions
         JPanel bottomPanel = new JPanel();
         JButton removeBtn = new JButton("Remove Selected");
@@ -47,10 +50,9 @@ public class UserManagementPanel extends JPanel {
         addBtn.addActionListener(e -> {
             try {
                 frame.getUserController().addUser(
-                    nameField.getText(),
-                    idField.getText(),
-                    (String) roleCombo.getSelectedItem()
-                );
+                        nameField.getText(),
+                        idField.getText(),
+                        (String) roleCombo.getSelectedItem());
                 refreshTable();
                 nameField.setText("");
                 idField.setText("");
@@ -83,10 +85,10 @@ public class UserManagementPanel extends JPanel {
         tableModel.setRowCount(0);
         List<User> users = frame.getUserController().getAllUsers();
         for (User u : users) {
-            tableModel.addRow(new Object[]{
-                u.getName(),
-                u.getId(),
-                u.getClass().getSimpleName()
+            tableModel.addRow(new Object[] {
+                    u.getName(),
+                    u.getId(),
+                    u.getClass().getSimpleName()
             });
         }
     }

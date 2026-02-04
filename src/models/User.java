@@ -12,6 +12,11 @@ public abstract class User implements Serializable {
         this.id = id;
     }
 
-    public String getName() { return name; }
-    public String getId() { return id; }
+    public String getName() {
+        return name;
+    }
+
+    public String getId() {
+        return id;
+    }
 }

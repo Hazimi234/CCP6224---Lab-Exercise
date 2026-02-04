@@ -5,8 +5,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Represents a Project Submission by a student.
+ * It contains details of the research, the attached file,
+ * and a list of evaluations received from panels.
+ */
 public class Submission implements Serializable {
     private static final long serialVersionUID = 1L;
+
+    // Core attributes
     private String id;
     private String name;
     private String title;
@@ -14,13 +21,19 @@ public class Submission implements Serializable {
     private String supervisor;
     private String presentationType;
     private String filePath;
+
     private String status;
-    private List<Evaluation> evaluations;
     private String boardId;
+
+    // List of scorecards from evaluators
+    private List<Evaluation> evaluations;
+
+    // Voting Counter for People's Choice Award
     private int voteCount = 0;
 
     public Submission(String name, String title, String abstractText, String supervisor, String presentationType,
             String filePath) {
+        // Generate a random unique ID for this submission
         this.id = UUID.randomUUID().toString().substring(0, 8);
         this.name = name;
         this.title = title;
@@ -28,16 +41,15 @@ public class Submission implements Serializable {
         this.supervisor = supervisor;
         this.presentationType = presentationType;
         this.filePath = filePath;
+
+        // Default values
         this.status = "Pending";
         this.evaluations = new ArrayList<>();
         this.voteCount = 0;
     }
 
-    // Getters
+    // --- GETTERS ---
     public String getId() {
-        if (id == null) {
-            id = UUID.randomUUID().toString().substring(0, 8);
-        }
         return id;
     }
 
@@ -74,13 +86,13 @@ public class Submission implements Serializable {
     }
 
     public List<Evaluation> getEvaluations() {
-        if (evaluations == null) {
+        if (evaluations == null)
             evaluations = new ArrayList<>();
-        }
         return evaluations;
     }
 
-    // Setter for status
+    // --- SETTERS & LOGIC ---
+
     public void setStatus(String status) {
         this.status = status;
     }
@@ -89,15 +101,19 @@ public class Submission implements Serializable {
         this.boardId = boardId;
     }
 
+    /**
+     * Adds a new evaluation score to this submission.
+     * If an evaluator updates their score, the old one is removed first.
+     */
     public void addEvaluation(Evaluation evaluation) {
-        if (this.evaluations == null) {
+        if (this.evaluations == null)
             this.evaluations = new ArrayList<>();
-        }
-        // Remove existing evaluation by the same evaluator to allow updates
+        // Remove prior evaluation from same evaluator ID to allow updates/editing
         this.evaluations.removeIf(e -> e.getEvaluatorId().equals(evaluation.getEvaluatorId()));
         this.evaluations.add(evaluation);
     }
 
+    // Methods for People's Choice Voting
     public int getVoteCount() {
         return voteCount;
     }

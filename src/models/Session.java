@@ -4,12 +4,24 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Represents a Seminar Session (Time slot).
+ * A session has a specific date, time, and type (Oral/Poster).
+ * It acts as a container linking Evaluators to Submissions.
+ */
 public class Session implements Serializable {
     private static final long serialVersionUID = 1L;
+
     private String id;
     private String date;
     private String time;
-    private String type; // "Oral" or "Poster"
+    private String type;
+
+    /**
+     * Store IDs instead of full objects to keep the file size small
+     * and avoid circular reference issues during serialization.
+     */
+
     private List<String> assignedEvaluatorIds;
     private List<String> assignedSubmissionIds;
 
@@ -22,13 +34,32 @@ public class Session implements Serializable {
         this.assignedSubmissionIds = new ArrayList<>();
     }
 
-    public String getId() { return id; }
-    public String getDate() { return date; }
-    public String getTime() { return time; }
-    public String getType() { return type; }
-    public List<String> getAssignedEvaluatorIds() { return assignedEvaluatorIds; }
-    public List<String> getAssignedSubmissionIds() { return assignedSubmissionIds; }
+    // Getters
+    public String getId() {
+        return id;
+    }
 
+    public String getDate() {
+        return date;
+    }
+
+    public String getTime() {
+        return time;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public List<String> getAssignedEvaluatorIds() {
+        return assignedEvaluatorIds;
+    }
+
+    public List<String> getAssignedSubmissionIds() {
+        return assignedSubmissionIds;
+    }
+
+    // Setters for Assignments
     public void setAssignedEvaluatorIds(List<String> ids) {
         this.assignedEvaluatorIds = ids;
     }
