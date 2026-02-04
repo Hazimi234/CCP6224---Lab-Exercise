@@ -1,31 +1,891 @@
 package view;
+
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import models.Session;
+import models.Submission;
+import models.User;
+import models.Evaluation;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.io.File;
+import java.io.IOException;
+
+/**
+ * CoordinatorPanel is the admin dashboard.
+ * It uses a JTabbedPane to organize different management modules:
+ * 1. Manage Sessions (Create/Delete)
+ * 2. Assign Evaluators to Sessions
+ * 3. Assign Submissions to Sessions
+ * 4. Poster Board Management
+ * 5. Report Summary & Analytics
+ * 6. Awards & Ceremony
+ */
 
 public class CoordinatorPanel extends JPanel {
+    private MainFrame frame;
+    private DefaultTableModel sessionTableModel;
+    private JComboBox<Session> sessionSelector;
+    private JComboBox<Session> submissionSessionSelector;
+    private JPanel evaluatorCheckboxesPanel;
+    private JPanel submissionCheckboxesPanel;
+    private JCheckBox filterByTypeBox;
+    private JComboBox<Session> posterSessionSelector;
+    private DefaultTableModel posterTableModel;
+    private DefaultTableModel reportTableModel;
+
     public CoordinatorPanel(MainFrame frame) {
+        this.frame = frame;
         setLayout(new BorderLayout());
 
         JTabbedPane tabs = new JTabbedPane();
 
-        // Tab 1: Management
+        // --- Tab 1: Create Sessions ---
         JPanel managePanel = new JPanel();
-        managePanel.add(new JButton("Create New Session"));
-        managePanel.add(new JButton("Assign Evaluators"));
-        tabs.addTab("Assignments", managePanel);
+        managePanel.setLayout(new BorderLayout());
 
-        // Tab 2: Reports
-        JPanel reportPanel = new JPanel();
-        reportPanel.add(new JButton("Generate PDF Report"));
-        reportPanel.add(new JButton("Compute Awards"));
-        tabs.addTab("Reports & Awards", reportPanel);
+        // Form
+        JPanel createForm = new JPanel(new FlowLayout());
+        JTextField dateField = new JTextField(8);
+        JTextField timeField = new JTextField(5);
+        JComboBox<String> typeCombo = new JComboBox<>(new String[] { "Oral", "Poster" });
+        JButton createBtn = new JButton("Create Session");
+        JButton deleteBtn = new JButton("Delete Selected Session");
+
+        createForm.add(new JLabel("Date (DD/MM):"));
+        createForm.add(dateField);
+        createForm.add(new JLabel("Time (HH:MM):"));
+        createForm.add(timeField);
+        createForm.add(new JLabel("Type:"));
+        createForm.add(typeCombo);
+        createForm.add(createBtn);
+        createForm.add(deleteBtn);
+
+        // Table
+        String[] cols = { "ID", "Date", "Time", "Type" };
+        sessionTableModel = new DefaultTableModel(cols, 0);
+        JTable sessionTable = new JTable(sessionTableModel);
+
+        managePanel.add(createForm, BorderLayout.NORTH);
+        managePanel.add(new JScrollPane(sessionTable), BorderLayout.CENTER);
+
+        tabs.addTab("Manage Sessions", managePanel);
+
+        // --- Tab 2: Assign Evaluators ---
+        JPanel assignPanel = new JPanel(new BorderLayout());
+        JPanel topAssign = new JPanel(new FlowLayout());
+        sessionSelector = new JComboBox<>();
+
+        topAssign.add(new JLabel("Select Session:"));
+        topAssign.add(sessionSelector);
+
+        // Panel to hold checkboxes dynamically generated
+        evaluatorCheckboxesPanel = new JPanel();
+        evaluatorCheckboxesPanel.setLayout(new BoxLayout(evaluatorCheckboxesPanel, BoxLayout.Y_AXIS));
+        JScrollPane checkboxScroll = new JScrollPane(evaluatorCheckboxesPanel);
+
+        JButton saveAssignmentBtn = new JButton("Save Assignments");
+
+        assignPanel.add(topAssign, BorderLayout.NORTH);
+        assignPanel.add(checkboxScroll, BorderLayout.CENTER);
+        assignPanel.add(saveAssignmentBtn, BorderLayout.SOUTH);
+
+        tabs.addTab("Assign Evaluators", assignPanel);
+
+        // --- Tab 3: Assign Submissions ---
+        JPanel assignSubPanel = new JPanel(new BorderLayout());
+        JPanel topAssignSub = new JPanel(new FlowLayout());
+        submissionSessionSelector = new JComboBox<>();
+        filterByTypeBox = new JCheckBox("Match Session Type", true);
+
+        topAssignSub.add(new JLabel("Select Session:"));
+        topAssignSub.add(submissionSessionSelector);
+        topAssignSub.add(filterByTypeBox);
+
+        submissionCheckboxesPanel = new JPanel();
+        submissionCheckboxesPanel.setLayout(new BoxLayout(submissionCheckboxesPanel, BoxLayout.Y_AXIS));
+        JScrollPane subCheckboxScroll = new JScrollPane(submissionCheckboxesPanel);
+
+        JButton saveSubAssignmentBtn = new JButton("Save Assignments");
+
+        assignSubPanel.add(topAssignSub, BorderLayout.NORTH);
+        assignSubPanel.add(subCheckboxScroll, BorderLayout.CENTER);
+        assignSubPanel.add(saveSubAssignmentBtn, BorderLayout.SOUTH);
+
+        tabs.addTab("Assign Submissions", assignSubPanel);
+
+        // --- Tab 4: Poster Presentation Management ---
+        JPanel posterPanel = new JPanel(new BorderLayout());
+        JPanel topPoster = new JPanel(new FlowLayout());
+        posterSessionSelector = new JComboBox<>();
+
+        topPoster.add(new JLabel("Select Poster Session:"));
+        topPoster.add(posterSessionSelector);
+
+        // Table shows Board ID (B01, B02) auto-generated by Controller
+        String[] posterCols = { "Board ID", "Student Name", "Project Title", "Abstract", "File Path", "Status",
+                "Action" };
+        posterTableModel = new DefaultTableModel(posterCols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 6;
+            }
+        };
+        JTable posterTable = new JTable(posterTableModel);
+        posterTable.getColumn("Action").setCellRenderer(new ButtonRenderer());
+        posterTable.getColumn("Action").setCellEditor(new ButtonEditor(new JCheckBox(), posterTable));
+        JScrollPane tableScroll = new JScrollPane(posterTable);
+        tableScroll.setBorder(BorderFactory.createTitledBorder("Assigned Poster Details"));
+
+        posterPanel.add(topPoster, BorderLayout.NORTH);
+        posterPanel.add(tableScroll, BorderLayout.CENTER);
+
+        tabs.addTab("Poster Presentation Management", posterPanel);
+
+        // --- Tab 5: Report Summary ---
+        JPanel reportPanel = new JPanel(new BorderLayout());
+
+        // Table Setup
+        String[] reportCols = { "Student Name", "Project Title", "Evaluated", "Status", "View Details" };
+        reportTableModel = new DefaultTableModel(reportCols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 4; // Only button column is editable
+            }
+        };
+        JTable reportTable = new JTable(reportTableModel);
+        reportTable.getColumn("View Details").setCellRenderer(new ButtonRenderer());
+        reportTable.getColumn("View Details")
+                .setCellEditor(new DetailsButtonEditor(new JCheckBox(), reportTable, frame));
+        JScrollPane reportScroll = new JScrollPane(reportTable);
+        reportScroll.setBorder(BorderFactory.createTitledBorder("Submission Reports"));
+
+        reportPanel.add(reportScroll, BorderLayout.CENTER);
+
+        // Analytics & Export Buttons
+        JPanel reportButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton analyticsBtn = new JButton("Show Analytics");
+        JButton exportBtn = new JButton("Export Report to .txt");
+
+        reportButtonPanel.add(analyticsBtn);
+        reportButtonPanel.add(exportBtn);
+        reportPanel.add(reportButtonPanel, BorderLayout.SOUTH);
+
+        // C. Add Listeners
+        analyticsBtn.addActionListener(e -> showAnalyticsDialog());
+        exportBtn.addActionListener(e -> exportReportToTxt());
+
+        tabs.addTab("Report Summary", reportPanel);
+
+        // --- Tab 6: Award & Ceremony Module ---
+        JPanel awardPanel = new JPanel(new BorderLayout());
+
+        // Top Panel: Compute Winners
+        JPanel winnerPanel = new JPanel(new BorderLayout());
+        winnerPanel.setBorder(BorderFactory.createTitledBorder("Competition Results"));
+        JPanel winnerBtnPanel = new JPanel();
+
+        // "Input Audience Votes"
+        JButton inputVotesBtn = new JButton("Input Audience Votes (People's Choice)");
+        JButton computeWinnersBtn = new JButton("Compute Winners");
+        winnerBtnPanel.add(inputVotesBtn);
+        winnerBtnPanel.add(computeWinnersBtn);
+
+        JTextArea winnersDisplay = new JTextArea(5, 40);
+        winnersDisplay.setEditable(false);
+        winnersDisplay.setFont(new Font("Monospaced", Font.BOLD, 14));
+        winnerPanel.add(winnerBtnPanel, BorderLayout.NORTH);
+        winnerPanel.add(new JScrollPane(winnersDisplay), BorderLayout.CENTER);
+
+        // Bottom Panel: Generate Agenda
+        JPanel agendaPanel = new JPanel(new BorderLayout());
+        agendaPanel.setBorder(BorderFactory.createTitledBorder("Ceremony Agenda"));
+        JPanel agendaForm = new JPanel(new FlowLayout());
+        JTextField ceremonyDate = new JTextField(10);
+        JTextField ceremonyTime = new JTextField(5);
+        JTextField ceremonyVenue = new JTextField(15);
+        JButton generateAgendaBtn = new JButton("Generate Agenda");
+
+        agendaForm.add(new JLabel("Date:"));
+        agendaForm.add(ceremonyDate);
+        agendaForm.add(new JLabel("Time:"));
+        agendaForm.add(ceremonyTime);
+        agendaForm.add(new JLabel("Venue:"));
+        agendaForm.add(ceremonyVenue);
+        agendaForm.add(generateAgendaBtn);
+
+        JTextArea agendaDisplay = new JTextArea(10, 40);
+        agendaDisplay.setEditable(false);
+        agendaDisplay.setFont(new Font("Monospaced", Font.PLAIN, 12));
+
+        agendaPanel.add(agendaForm, BorderLayout.NORTH);
+        agendaPanel.add(new JScrollPane(agendaDisplay), BorderLayout.CENTER);
+
+        // Add split pane
+        JSplitPane awardSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, winnerPanel, agendaPanel);
+        awardSplit.setDividerLocation(200);
+        awardPanel.add(awardSplit, BorderLayout.CENTER);
+
+        tabs.addTab("Award & Ceremony", awardPanel);
+
+        // --- Logic: Input Votes Button ---
+        inputVotesBtn.addActionListener(e -> {
+            // Create a simple table to edit votes
+            List<Submission> allSubs = frame.getCoordinatorController().getAllSubmissions();
+            String[] colNames = { "Student", "Title", "Current Votes (Editable)" };
+            DefaultTableModel voteModel = new DefaultTableModel(colNames, 0) {
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return column == 2; // Only the vote count is editable
+                }
+            };
+
+            for (Submission s : allSubs) {
+                voteModel.addRow(new Object[] { s.getName(), s.getTitle(), String.valueOf(s.getVoteCount()) });
+            }
+
+            JTable voteTable = new JTable(voteModel);
+            JScrollPane scroll = new JScrollPane(voteTable);
+
+            int result = JOptionPane.showConfirmDialog(this, scroll,
+                    "Enter Offline Vote Counts", JOptionPane.OK_CANCEL_OPTION);
+
+            if (result == JOptionPane.OK_OPTION) {
+                try {
+                    // Update models from table
+                    for (int i = 0; i < voteTable.getRowCount(); i++) {
+                        String sName = (String) voteTable.getValueAt(i, 0);
+                        String sTitle = (String) voteTable.getValueAt(i, 1);
+                        String voteStr = (String) voteTable.getValueAt(i, 2);
+                        int count = Integer.parseInt(voteStr.trim());
+
+                        // Find submission and update
+                        for (Submission s : allSubs) {
+                            if (s.getName().equals(sName) && s.getTitle().equals(sTitle)) {
+                                s.setVoteCount(count);
+                                break;
+                            }
+                        }
+                    }
+                    frame.getSubmissionController().saveSubmissions(); // Save changes
+                    JOptionPane.showMessageDialog(this, "Votes Updated Successfully!");
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, "Error: Please enter valid numbers only.");
+                }
+            }
+        });
+
+        // --- Logic: Compute Winners ---
+        computeWinnersBtn.addActionListener(e -> {
+            List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
+
+            Submission bestOral = null;
+            Submission bestPoster = null;
+            Submission peoplesChoice = null;
+
+            double maxOralScore = -1;
+            double maxPosterScore = -1;
+            int maxVotes = -1;
+
+            for (Submission s : submissions) {
+                // Calculate Evaluator Scores
+                if (!s.getEvaluations().isEmpty()) {
+                    double totalScore = 0;
+                    for (Evaluation ev : s.getEvaluations()) {
+                        totalScore += ev.getTotalScore();
+                    }
+                    double avgScore = totalScore / s.getEvaluations().size();
+
+                    if ("Oral".equalsIgnoreCase(s.getPresentationType()) && avgScore > maxOralScore) {
+                        maxOralScore = avgScore;
+                        bestOral = s;
+                    } else if ("Poster".equalsIgnoreCase(s.getPresentationType()) && avgScore > maxPosterScore) {
+                        maxPosterScore = avgScore;
+                        bestPoster = s;
+                    }
+                }
+
+                // Calculate People's Choice (Max Votes Wins)
+                if (s.getVoteCount() > maxVotes && s.getVoteCount() > 0) {
+                    maxVotes = s.getVoteCount();
+                    peoplesChoice = s;
+                }
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("🏆 AWARD WINNERS ANNOUNCEMENT 🏆\n\n");
+
+            if (bestOral != null) {
+                sb.append("🥇 BEST ORAL PRESENTER\n");
+                sb.append("   Name: ").append(bestOral.getName()).append("\n");
+                sb.append("   Score: ").append(String.format("%.2f", maxOralScore)).append("/20\n\n");
+            }
+
+            if (bestPoster != null) {
+                sb.append("🥇 BEST POSTER PRESENTER\n");
+                sb.append("   Name: ").append(bestPoster.getName()).append("\n");
+                sb.append("   Score: ").append(String.format("%.2f", maxPosterScore)).append("/20\n\n");
+            }
+
+            if (peoplesChoice != null) {
+                sb.append("💖 PEOPLE'S CHOICE AWARD\n");
+                sb.append("   Name: ").append(peoplesChoice.getName()).append("\n");
+                sb.append("   Title: ").append(peoplesChoice.getTitle()).append("\n");
+                sb.append("   Total Votes: ").append(peoplesChoice.getVoteCount()).append("\n");
+            } else {
+                sb.append("💖 PEOPLE'S CHOICE AWARD: [No votes recorded]\n");
+            }
+
+            winnersDisplay.setText(sb.toString());
+        });
+
+        // Generate Agenda Logic
+        generateAgendaBtn.addActionListener(e -> {
+            String d = ceremonyDate.getText();
+            String t = ceremonyTime.getText();
+            String v = ceremonyVenue.getText();
+
+            if (d.isEmpty() || t.isEmpty() || v.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please fill in all ceremony details.");
+                return;
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("=========================================\n");
+            sb.append("       OFFICIAL CLOSING CEREMONY         \n");
+            sb.append("=========================================\n");
+            sb.append("Date:  ").append(d).append("\n");
+            sb.append("Time:  ").append(t).append("\n");
+            sb.append("Venue: ").append(v).append("\n");
+            sb.append("-----------------------------------------\n\n");
+            sb.append("AGENDA:\n");
+            sb.append("1. Arrival of VIPs and Guests\n");
+            sb.append("2. Opening Speech by Dean of FCI\n");
+            sb.append("3. Montage Presentation of Research Seminar\n");
+            sb.append("4. Award Giving Ceremony:\n");
+            sb.append("   - Best Oral Presentation Award\n");
+            sb.append("   - Best Poster Presentation Award\n");
+            sb.append("   - People's Choice\n");
+            sb.append("5. Photography Session\n");
+            sb.append("6. Refreshments & End\n");
+
+            agendaDisplay.setText(sb.toString());
+        });
+
+        // --- Logic ---
+        createBtn.addActionListener(e -> {
+            try {
+                frame.getCoordinatorController().createSession(
+                        dateField.getText(), timeField.getText(), (String) typeCombo.getSelectedItem());
+                refreshData();
+                dateField.setText("");
+                timeField.setText("");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage());
+            }
+        });
+
+        deleteBtn.addActionListener(e -> {
+            int row = sessionTable.getSelectedRow();
+            if (row != -1) {
+                int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this session?",
+                        "Confirm Deletion", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    String id = (String) sessionTableModel.getValueAt(row, 0);
+                    frame.getCoordinatorController().deleteSession(id);
+                    refreshData();
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Please select a session to delete.");
+            }
+        });
+
+        // Auto-refresh listeners
+        sessionSelector.addActionListener(e -> loadEvaluatorsForSession());
+        submissionSessionSelector.addActionListener(e -> loadSubmissionsForSession());
+        filterByTypeBox.addActionListener(e -> loadSubmissionsForSession());
+        posterSessionSelector.addActionListener(e -> loadPosterData());
+
+        saveAssignmentBtn.addActionListener(e -> {
+            Session selected = (Session) sessionSelector.getSelectedItem();
+            if (selected == null)
+                return;
+
+            List<String> selectedIds = new ArrayList<>();
+            for (Component c : evaluatorCheckboxesPanel.getComponents()) {
+                if (c instanceof JCheckBox) {
+                    JCheckBox cb = (JCheckBox) c;
+                    if (cb.isSelected()) {
+                        selectedIds.add(cb.getActionCommand()); // We stored ID in ActionCommand
+                    }
+                }
+            }
+
+            frame.getCoordinatorController().updateSessionEvaluators(selected, selectedIds);
+            JOptionPane.showMessageDialog(this, "Assignments Saved!");
+        });
+
+        saveSubAssignmentBtn.addActionListener(e -> {
+            Session selected = (Session) submissionSessionSelector.getSelectedItem();
+            if (selected == null)
+                return;
+
+            List<String> selectedIds = new ArrayList<>();
+            for (Component c : submissionCheckboxesPanel.getComponents()) {
+                if (c instanceof JCheckBox) {
+                    JCheckBox cb = (JCheckBox) c;
+                    if (cb.isSelected()) {
+                        selectedIds.add(cb.getActionCommand());
+                    }
+                }
+            }
+
+            frame.getCoordinatorController().updateSessionSubmissions(selected, selectedIds);
+            JOptionPane.showMessageDialog(this, "Submission Assignments Saved!");
+        });
 
         JButton backBtn = new JButton("Logout");
-        
+
         add(new JLabel("Coordinator Dashboard", SwingConstants.CENTER), BorderLayout.NORTH);
         add(tabs, BorderLayout.CENTER);
         add(backBtn, BorderLayout.SOUTH);
 
         backBtn.addActionListener(e -> frame.showScreen("Login"));
+
+        // Refresh when shown
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent e) {
+                refreshData();
+            }
+        });
+    }
+
+    private void refreshData() {
+        // Refresh Table
+        sessionTableModel.setRowCount(0);
+        sessionSelector.removeAllItems();
+        submissionSessionSelector.removeAllItems();
+        posterSessionSelector.removeAllItems();
+
+        for (Session s : frame.getCoordinatorController().getAllSessions()) {
+            sessionTableModel.addRow(new Object[] { s.getId(), s.getDate(), s.getTime(), s.getType() });
+            sessionSelector.addItem(s);
+            submissionSessionSelector.addItem(s);
+            if ("Poster".equals(s.getType())) {
+                posterSessionSelector.addItem(s);
+            }
+        }
+        loadReportData();
+    }
+
+    private void loadEvaluatorsForSession() {
+        evaluatorCheckboxesPanel.removeAll();
+        Session selected = (Session) sessionSelector.getSelectedItem();
+        if (selected == null)
+            return;
+
+        List<String> assignedIds = selected.getAssignedEvaluatorIds();
+        List<User> evaluators = frame.getCoordinatorController().getAllEvaluators();
+
+        for (User u : evaluators) {
+            JCheckBox cb = new JCheckBox(u.getName() + " (" + u.getId() + ")");
+            cb.setActionCommand(u.getId()); // Store ID to retrieve later
+            if (assignedIds.contains(u.getId())) {
+                cb.setSelected(true);
+            }
+            evaluatorCheckboxesPanel.add(cb);
+        }
+        evaluatorCheckboxesPanel.revalidate();
+        evaluatorCheckboxesPanel.repaint();
+    }
+
+    private void loadSubmissionsForSession() {
+        submissionCheckboxesPanel.removeAll();
+        Session selected = (Session) submissionSessionSelector.getSelectedItem();
+        if (selected == null)
+            return;
+
+        List<String> assignedIds = selected.getAssignedSubmissionIds();
+        List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
+        boolean filter = filterByTypeBox.isSelected();
+        String sessionType = selected.getType();
+
+        for (Submission s : submissions) {
+            boolean isAssigned = assignedIds != null && assignedIds.contains(s.getId());
+            // Filter logic: If filter is ON, and it's NOT already assigned, and types don't
+            // match, then skip
+            if (filter && !isAssigned
+                    && (s.getPresentationType() == null || !s.getPresentationType().equals(sessionType))) {
+                continue;
+            }
+            JCheckBox cb = new JCheckBox(s.getTitle() + " by " + s.getName());
+            cb.setActionCommand(s.getId());
+            if (isAssigned) {
+                cb.setSelected(true);
+            }
+            submissionCheckboxesPanel.add(cb);
+        }
+        submissionCheckboxesPanel.revalidate();
+        submissionCheckboxesPanel.repaint();
+    }
+
+    private void loadPosterData() {
+        posterTableModel.setRowCount(0);
+        Session selected = (Session) posterSessionSelector.getSelectedItem();
+        if (selected == null)
+            return;
+
+        List<String> assignedIds = selected.getAssignedSubmissionIds();
+        List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
+
+        for (Submission s : submissions) {
+            if ("Poster".equals(s.getPresentationType())) {
+                boolean isAssigned = assignedIds != null && assignedIds.contains(s.getId());
+                if (isAssigned) {
+                    posterTableModel.addRow(new Object[] {
+                            s.getBoardId() != null ? s.getBoardId() : "-",
+                            s.getName(),
+                            s.getTitle(),
+                            s.getAbstractText(),
+                            s.getFilePath(),
+                            s.getStatus(),
+                            "View File"
+                    });
+                }
+            }
+        }
+    }
+
+    private void loadReportData() {
+        if (reportTableModel == null)
+            return;
+        reportTableModel.setRowCount(0);
+        List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
+        List<Session> sessions = frame.getCoordinatorController().getAllSessions();
+
+        for (Submission s : submissions) {
+            // Find the session this submission belongs to
+            int totalEvaluators = 0;
+            for (Session session : sessions) {
+                if (session.getAssignedSubmissionIds().contains(s.getId())) {
+                    totalEvaluators = session.getAssignedEvaluatorIds().size();
+                    break;
+                }
+            }
+
+            int evaluatedCount = s.getEvaluations().size();
+            String evaluatedStr = evaluatedCount + "/" + totalEvaluators;
+
+            String statusStr = "Not Evaluated";
+            if (evaluatedCount > 0) {
+                if (evaluatedCount >= totalEvaluators && totalEvaluators > 0) {
+                    statusStr = "Fully Evaluated";
+                } else {
+                    statusStr = "Partially Evaluated";
+                }
+            }
+
+            reportTableModel.addRow(new Object[] {
+                    s.getName(),
+                    s.getTitle(),
+                    evaluatedStr,
+                    statusStr,
+                    "View Details" // Button text
+            });
+        }
+    }
+
+    private void showAnalyticsDialog() {
+        List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
+        List<Session> sessions = frame.getCoordinatorController().getAllSessions();
+
+        if (submissions.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No data available for analytics.");
+            return;
+        }
+
+        int totalSubmissions = submissions.size();
+        int fullyEvaluated = 0;
+        double totalScoreSum = 0;
+        int totalEvaluationsCount = 0;
+
+        // Variables to track Top Performers
+        Submission bestOral = null;
+        Submission bestPoster = null;
+        double highestOralScore = -1.0;
+        double highestPosterScore = -1.0;
+
+        for (Submission s : submissions) {
+            // Check if fully evaluated
+            int requiredEvaluators = 0;
+            for (Session session : sessions) {
+                if (session.getAssignedSubmissionIds().contains(s.getId())) {
+                    requiredEvaluators = session.getAssignedEvaluatorIds().size();
+                    break;
+                }
+            }
+
+            if (requiredEvaluators > 0 && s.getEvaluations().size() >= requiredEvaluators) {
+                fullyEvaluated++;
+            }
+
+            // Calculate Scores
+            if (!s.getEvaluations().isEmpty()) {
+                double subTotal = 0;
+                for (Evaluation e : s.getEvaluations()) {
+                    subTotal += e.getTotalScore();
+                    totalScoreSum += e.getTotalScore();
+                    totalEvaluationsCount++;
+                }
+
+                // Average score for this specific student
+                double avgScore = subTotal / s.getEvaluations().size();
+
+                // Determine High Scorers
+                if ("Oral".equalsIgnoreCase(s.getPresentationType())) {
+                    if (avgScore > highestOralScore) {
+                        highestOralScore = avgScore;
+                        bestOral = s;
+                    }
+                } else if ("Poster".equalsIgnoreCase(s.getPresentationType())) {
+                    if (avgScore > highestPosterScore) {
+                        highestPosterScore = avgScore;
+                        bestPoster = s;
+                    }
+                }
+            }
+        }
+
+        // Global Average across all evaluations
+        double globalAverage = totalEvaluationsCount > 0 ? (totalScoreSum / totalEvaluationsCount) : 0.0;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("--- SEMINAR ANALYTICS ---\n\n");
+        sb.append("Total Submissions: ").append(totalSubmissions).append("\n");
+        sb.append("Fully Evaluated: ").append(fullyEvaluated).append("\n");
+        sb.append("Pending/Partial: ").append(totalSubmissions - fullyEvaluated).append("\n");
+        sb.append(String.format("Global Average Score: %.2f / 20\n\n", globalAverage));
+
+        sb.append("--- PROVISIONAL TOP PERFORMERS ---\n");
+        sb.append("Best Oral Presenter: ").append(
+                bestOral != null ? bestOral.getName() + " (" + String.format("%.1f", highestOralScore) + ")" : "N/A")
+                .append("\n");
+        sb.append("Best Poster Presenter: ")
+                .append(bestPoster != null
+                        ? bestPoster.getName() + " (" + String.format("%.1f", highestPosterScore) + ")"
+                        : "N/A")
+                .append("\n");
+
+        JTextArea area = new JTextArea(sb.toString());
+        area.setEditable(false);
+        area.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        JOptionPane.showMessageDialog(this, new JScrollPane(area), "Data Analytics", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void exportReportToTxt() {
+        List<Submission> submissions = frame.getCoordinatorController().getAllSubmissions();
+        if (submissions.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No data to export.");
+            return;
+        }
+
+        try {
+            java.io.FileWriter writer = new java.io.FileWriter("Seminar_Report.txt");
+
+            writer.write("================================================================================\n");
+            writer.write("                       SEMINAR MANAGEMENT SYSTEM REPORT                         \n");
+            writer.write("================================================================================\n\n");
+
+            // Header
+            writer.write(String.format("%-20s %-30s %-15s %-15s\n", "Student", "Title", "Type", "Status"));
+            writer.write("--------------------------------------------------------------------------------\n");
+
+            for (Submission s : submissions) {
+                String status = s.getEvaluations().isEmpty() ? "Pending"
+                        : "Evaluated (" + s.getEvaluations().size() + ")";
+
+                // Main Row
+                writer.write(String.format("%-20s %-30s %-15s %-15s\n",
+                        padRight(s.getName(), 20),
+                        padRight(truncate(s.getTitle(), 28), 30),
+                        padRight(s.getPresentationType(), 15),
+                        status));
+
+                // Detail Row (Indented)
+                if (!s.getEvaluations().isEmpty()) {
+                    writer.write("   DETAILS: ");
+                    for (Evaluation e : s.getEvaluations()) {
+                        writer.write(String.format("[%s: %d/20] ", e.getEvaluatorName(), e.getTotalScore()));
+                    }
+                    writer.write("\n");
+                }
+                writer.write("\n"); // Spacing
+            }
+
+            writer.write("\n================================================================================\n");
+            writer.write("Generated on: " + new java.util.Date().toString());
+            writer.close();
+
+            JOptionPane.showMessageDialog(this, "Report exported successfully to 'Seminar_Report.txt'!");
+
+            // Try to open the file automatically
+            File file = new File("Seminar_Report.txt");
+            if (Desktop.isDesktopSupported() && file.exists()) {
+                Desktop.getDesktop().open(file);
+            }
+
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this, "Error exporting report: " + ex.getMessage());
+        }
+    }
+
+    // --- Helper Methods for Text Formatting ---
+
+    private String padRight(String s, int n) {
+        if (s == null)
+            s = "";
+        if (s.length() > n)
+            return s.substring(0, n); // Optional: Clip if too long
+        return String.format("%-" + n + "s", s);
+    }
+
+    private String truncate(String s, int n) {
+        if (s != null && s.length() > n)
+            return s.substring(0, n - 2) + "..";
+        return s;
+    }
+
+    // --- Inner Classes for Table Button ---
+
+    private static class ButtonRenderer extends JButton implements javax.swing.table.TableCellRenderer {
+        public ButtonRenderer() {
+            setOpaque(true);
+        }
+
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            setText((value == null) ? "" : value.toString());
+            return this;
+        }
+    }
+
+    private static class ButtonEditor extends DefaultCellEditor {
+        protected JButton button;
+        private String label;
+        private final JTable table;
+
+        public ButtonEditor(JCheckBox checkBox, JTable table) {
+            super(checkBox);
+            this.table = table;
+            button = new JButton();
+            button.setOpaque(true);
+            button.addActionListener(e -> {
+                int row = table.getSelectedRow();
+                // File Path is at index 4 based on posterCols definition
+                Object val = table.getValueAt(row, 4);
+                String filePath = (val != null) ? val.toString() : "";
+                openFile(filePath);
+                fireEditingStopped();
+            });
+        }
+
+        private void openFile(String filePath) {
+            try {
+                File file = new File(filePath);
+                if (file.exists()) {
+                    Desktop.getDesktop().open(file);
+                } else {
+                    JOptionPane.showMessageDialog(null, "File not found: " + filePath);
+                }
+            } catch (IOException | SecurityException ex) {
+                JOptionPane.showMessageDialog(null, "Error opening file: " + ex.getMessage());
+            }
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row,
+                int column) {
+            label = (value == null) ? "View" : value.toString();
+            button.setText(label);
+            return button;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return label;
+        }
+    }
+
+    // --- Inner Class for Details Button ---
+    private static class DetailsButtonEditor extends DefaultCellEditor {
+        protected JButton button;
+        private String label;
+        private final JTable table;
+        private final MainFrame frame;
+
+        public DetailsButtonEditor(JCheckBox checkBox, JTable table, MainFrame frame) {
+            super(checkBox);
+            this.table = table;
+            this.frame = frame;
+            button = new JButton();
+            button.setOpaque(true);
+            button.addActionListener(e -> {
+                int row = table.getSelectedRow();
+                showDetails(row);
+                fireEditingStopped();
+            });
+        }
+
+        private void showDetails(int row) {
+            String title = (String) table.getValueAt(row, 1);
+            String student = (String) table.getValueAt(row, 0);
+
+            Submission target = null;
+            for (Submission s : frame.getCoordinatorController().getAllSubmissions()) {
+                if (s.getTitle().equals(title) && s.getName().equals(student)) {
+                    target = s;
+                    break;
+                }
+            }
+
+            if (target != null) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("Evaluations for: ").append(target.getTitle()).append("\n\n");
+                for (Evaluation ev : target.getEvaluations()) {
+                    sb.append("Evaluator: ").append(ev.getEvaluatorName()).append("\n");
+                    sb.append("Scores: Problem Clarity:").append(ev.getScore1()).append(" Methodology:")
+                            .append(ev.getScore2())
+                            .append(" Results:").append(ev.getScore3()).append(" Presentation:").append(ev.getScore4())
+                            .append("\n");
+                    sb.append("Total: ").append(ev.getTotalScore()).append("/20\n");
+                    sb.append("Comments: ").append(ev.getComments()).append("\n");
+                    sb.append("--------------------------------------------------\n");
+                }
+                if (target.getEvaluations().isEmpty())
+                    sb.append("No evaluations yet.");
+
+                JTextArea textArea = new JTextArea(sb.toString());
+                textArea.setEditable(false);
+                textArea.setRows(15);
+                textArea.setColumns(40);
+                JOptionPane.showMessageDialog(null, new JScrollPane(textArea), "Evaluation Details",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row,
+                int column) {
+            label = (value == null) ? "View" : value.toString();
+            button.setText(label);
+            return button;
+        }
+
+        @Override
+        public Object getCellEditorValue() {
+            return label;
+        }
     }
 }
